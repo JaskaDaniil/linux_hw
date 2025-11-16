@@ -72,29 +72,18 @@ for d in "${uniq_dirs[@]}"; do
   fi
 done
 
-if [[ ${#valid_dirs[@]} -eq 0 ]]; then
-  exit 0
-fi
-
-mapfile -t files < <(find "${valid_dirs[@]}" -type f -mtime +"$N" -print)
-
-if [[ ${#files[@]} -eq 0 ]]; then
-  [[ $VERBOSE -eq 1 ]] && echo "No files older than $N days."
-  exit 0
-fi
+[[ ${#valid_dirs[@]} -eq 0 ]] && exit 0
 
 if [[ $DRYRUN -eq 1 ]]; then
-  for f in "${files[@]}"; do
-    echo "$f"
-  done
-  exit 0
-else
-  for f in "${files[@]}"; do
-    if rm -- "$f"; then
-      [[ $VERBOSE -eq 1 ]] && echo "$f"
-    else
-      echo "Failed to delete: $f" >&2
-    fi
-  done
-  exit 0
+    find "${valid_dirs[@]}" -type f -mtime +"$N" -print
+    exit 0
 fi
+
+if [[ $VERBOSE -eq 1 ]]; then
+    find "${valid_dirs[@]}" -type f -mtime +"$N" -print -delete
+    exit 0
+fi
+
+find "${valid_dirs[@]}" -type f -mtime +"$N" -delete
+exit 0
+

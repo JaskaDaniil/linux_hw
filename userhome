@@ -19,18 +19,18 @@ while [[ $# -gt 0 ]]; do
             # вывели хелп
     -f)
       shift
-      [[ -z "$1" ]] && { echo "Missing argument for -f" >&2; usage; exit 0; }
+      [[ -z "$1" ]] && { echo "Missing argument for -f" >&2; usage; exit 3; }
       FILE="$1"; shift;;
     --)
       shift; break;;
     -*)
-      echo "Unsupported option: $1" >&2; usage; exit 0;;
+      echo "Unsupported option: $1" >&2; usage; exit 3;;
     *)
       if [[ -z "$USER" ]]; then
         USER="$1"
         shift
       else
-        echo "Too many arguments" >&2; usage; exit 0
+        echo "Too many arguments" >&2; usage; exit 3
       fi;;
   esac
 done
@@ -44,12 +44,12 @@ if [[ ! -f "$FILE" ]]; then
   exit 2
 fi
 
-line="$(grep -m1 -E "^${USER}:" -- "$FILE")"
-if [[ -z "$line" ]]; then
-  echo "User not found: $USER" >&2
-  exit 1
-fi
+line=$(grep "^$USER:" "$FILE") || {
+    echo "User not found: $USER" >&2
+    exit 1
+}
 
-home="$(echo "$line" | cut -d: -f6)"
+home=$(echo "$line" | cut -d: -f6)
 echo "$home"
 exit 0
+
