@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+
+usage(){
+  cat <<EOF
+Usage: delolder [-v|-d] N [--] dirs...
+  -v    verbose
+  -d    dry-run
+  --    end of options
+EOF
+}
+
+VERBOSE=0
+DRYRUN=0
+N=""
+declare -a DIRS=()
+stop_opts=0
+
+for arg in "$@"; do
+  if [[ $stop_opts -eq 0 && "$arg" == "--" ]]; then
+    stop_opts=1
+    continue
+  fi
+
+  if [[ $stop_opts -eq 0 && "$arg" == -* ]]; then
+    flagchars="${arg:1}"
+    for ((i=0;i<${#flagchars};i++)); do
+      ch="${flagchars:$i:1}"
+      case "$ch" in
+        v) VERBOSE=1;;
+        d) DRYRUN=1;;
+        *) echo "Unsupported option: -$ch" >&2; usage; exit 3;;
+      esac
+    done
+    continue
+  fi
+
+  if [[ -z "$N" && "$arg" =~ ^[0-9]+$ ]]; then
+    N="$arg"
+    continue
+  fi
+
+  DIRS+=("$arg")
+done
+
+if [[ -z "$N" ]]; then
+  echo "Missing days parameter N." >&2
+  usage
+  exit 3
+fi
+
+if [[ ${#DIRS[@]} -eq 0 ]]; then
+  echo "No directories specified." >&2
+  usage
+  exit 3
+fi
+
+declare -A seen
+uniq_dirs=()
+for d in "${DIRS[@]}"; do
+  if [[ -z "${seen[$d]}" ]]; then
+    seen[$d]=1
+    uniq_dirs+=("$d")
+  fi
+done
+
+valid_dirs=()
+for d in "${uniq_dirs[@]}"; do
+  if [[ -d "$d" ]]; then
+    valid_dirs+=("$d")
+  else
+    echo "Warning: directory not found: $d" >&2
+  fi
+done
+
+if [[ ${#valid_dirs[@]} -eq 0 ]]; then
+  exit 0
+fi
+
+mapfile -t files < <(find "${valid_dirs[@]}" -type f -mtime +"$N" -print)
+
+if [[ ${#files[@]} -eq 0 ]]; then
+  [[ $VERBOSE -eq 1 ]] && echo "No files older than $N days."
+  exit 0
+fi
+
+if [[ $DRYRUN -eq 1 ]]; then
+  for f in "${files[@]}"; do
+    echo "$f"
+  done
+  exit 0
+else
+  for f in "${files[@]}"; do
+    if rm -- "$f"; then
+      [[ $VERBOSE -eq 1 ]] && echo "$f"
+    else
+      echo "Failed to delete: $f" >&2
+    fi
+  done
+  exit 0
+fi
